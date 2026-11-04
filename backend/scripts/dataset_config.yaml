@@ -1,0 +1,88 @@
+# Multi-Dataset Training Configuration
+# Usage: python scripts/train.py --config dataset_config.yaml
+
+datasets:
+  # FaceForensics++ - Original dataset (GAN-based manipulations)
+  - name: "FaceForensics++"
+    path: "dataset"  # Existing dataset with Train/Validation/Test/Real/Fake structure
+    manipulation_types:
+      - "Deepfakes"
+      - "Face2Face"
+      - "FaceSwap"
+      - "NeuralTextures"
+    generator_family: "GAN"
+    weight: 0.4
+    splits:
+      train: "Train"
+      val: "Validation"
+      test: "Test"
+
+  # DFDC (Deepfake Detection Challenge) - Broader diversity
+  - name: "DFDC"
+    path: "dataset/dfdc"  # Place DFDC dataset here
+    manipulation_types:
+      - "DFDC_method_1"
+      - "DFDC_method_2"
+    generator_family: "Mixed"
+    weight: 0.3
+    splits:
+      train: "train"
+      val: "val"
+      test: "test"
+
+  # Celeb-DF v2 - Higher quality/harder fakes
+  - name: "Celeb-DF-v2"
+    path: "dataset/celebdf"  # Place Celeb-DF dataset here
+    manipulation_types:
+      - "CelebDF"
+    generator_family: "GAN_HighQuality"
+    weight: 0.2
+    splits:
+      train: "train"
+      val: "val"
+      test: "test"
+
+  # DF40 - Diffusion-based forgeries (critical for real-world threat)
+  - name: "DF40"
+    path: "dataset/df40"  # Place DF40 dataset here
+    manipulation_types:
+      - "StableDiffusion"
+      - "Midjourney"
+      - "DALL-E"
+    generator_family: "Diffusion"
+    weight: 0.1
+    splits:
+      train: "train"
+      val: "val"
+      test: "test"
+
+# Generator family to hold out from training (used for cross-generator validation)
+# This is the PRIMARY metric for generalization
+holdout_generator_family: "Diffusion"
+
+# Sampling configuration
+sampling:
+  strategy: "balanced"  # "balanced" | "weighted" | "uniform"
+  batch_size: 32
+  min_samples_per_generator: 100
+  num_workers: 4
+
+# Degradation augmentation (Task 2)
+degradation:
+  enabled: true
+  probability: 0.5
+  # Per-transform probabilities (applied independently)
+  jpeg_quality_range: [30, 95]
+  downscale_range: [0.25, 1.0]
+  blur_sigma_range: [0.1, 2.0]
+  noise_std_range: [2, 15]  # on 0-255 scale
+
+# Temporal modeling (Task 3)
+temporal:
+  enabled: false
+  num_frames: 16
+  stride: 2
+  model_type: "transformer"  # "transformer" | "bigru"
+  hidden_dim: 512
+  num_layers: 4
+  num_heads: 8

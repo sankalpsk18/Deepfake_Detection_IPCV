@@ -1,0 +1,13 @@
+{
+  "accuracy": 0.92,
+  "dataset": "FaceForensics++",
+  "models": {
+    "efficientnet": {
+      "accuracy": 0.89,
+      "variant": "EfficientNet-B0"
+    },
+    "mesonet": {
+      "accuracy": 0.82
+    }
+  }
+}

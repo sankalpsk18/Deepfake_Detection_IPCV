@@ -1,0 +1,50 @@
+
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: deepfake-detector-backend
+    ports:
+      - "8000:8000"
+    volumes:
+           - ./backend/models:/app/models
+           - ./backend/temp:/app/temp
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - INFERENCE_DEVICE=cpu
+      - CORS_ORIGINS=["http://localhost:3000","http://frontend:80","http://localhost"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - deepfake-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    container_name: deepfake-detector-frontend
+    ports:
+      - "3000:8080"
+    environment:
+      - VITE_API_URL=http://backend:8000/api/v1
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - deepfake-network
+
+networks:
+  deepfake-network:
+    name: deepfake-detector-network
+    driver: bridge
