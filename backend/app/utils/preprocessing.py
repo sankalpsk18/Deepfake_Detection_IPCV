@@ -237,6 +237,8 @@ def resize_with_padding(
     return canvas
 
 
+
+
 def preprocess_for_efficientnet(
     image: np.ndarray,
     *,
@@ -244,33 +246,49 @@ def preprocess_for_efficientnet(
     face_detected: Optional[bool] = None
 ) -> Tuple[np.ndarray, bool]:
     """
-    Preprocess image for EfficientNet-B0 (224x224, ImageNet norm).
+    Preprocessing for the Hugging Face Deep-Fake-Detector-v2 ViT model.
 
-    Args:
-        image: Input image (H, W, 3) BGR (used if pre_cropped not provided)
-        pre_cropped: Optional pre-cropped face image to use instead of running face detection
-        face_detected: Optional pre-computed face detection result
-
-    Returns:
-        Tuple of (preprocessed_tensor, face_detected)
+    Expected:
+    RGB, 224x224, rescale to [0,1],
+    normalize using mean=0.5 and std=0.5.
     """
-    if pre_cropped is not None:
-        cropped = pre_cropped
-        detected = face_detected if face_detected is not None else False
-    else:
-        cropped, detected, _ = detect_and_crop_face(
+
+    if image is None or image.size == 0:
+        raise ValueError("Input image is empty")
+
+    # Face detection is retained for reporting only.
+    # The ViT receives the full image, not the cropped face.
+    if face_detected is None:
+        _, detected, _ = detect_and_crop_face(
             image,
             confidence_threshold=settings.FACE_DETECTION_CONFIDENCE,
             padding=settings.FACE_CROP_PADDING
         )
+    else:
+        detected = bool(face_detected)
 
-    resized = resize_with_padding(cropped, (settings.MODEL_INPUT_SIZE, settings.MODEL_INPUT_SIZE))
-    normalized = normalize_image(resized)
+    # OpenCV BGR -> RGB
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # Match Hugging Face ViT processor: 224 x 224 resize
+    size = settings.MODEL_INPUT_SIZE
+    resized = cv2.resize(
+        rgb,
+        (size, size),
+        interpolation=cv2.INTER_LINEAR
+    )
+
+    # Rescale [0,255] -> [0,1]
+    scaled = resized.astype(np.float32) / 255.0
+
+    # Hugging Face normalization: mean=0.5, std=0.5
+    normalized = (scaled - 0.5) / 0.5
+
+    # HWC -> NCHW
     tensor = np.transpose(normalized, (2, 0, 1))
     tensor = np.expand_dims(tensor, axis=0).astype(np.float32)
 
     return tensor, detected
-
 
 def preprocess_for_mesonet(
     image: np.ndarray,
@@ -279,16 +297,9 @@ def preprocess_for_mesonet(
     face_detected: Optional[bool] = None
 ) -> Tuple[np.ndarray, bool]:
     """
-    Preprocess image for MesoNet (256x256, [0,1] range).
-
-    Args:
-        image: Input image (H, W, 3) BGR (used if pre_cropped not provided)
-        pre_cropped: Optional pre-cropped face image to use instead of running face detection
-        face_detected: Optional pre-computed face detection result
-
-    Returns:
-        Tuple of (preprocessed_tensor, face_detected)
+    Restore the MesoNet preprocessing helper.
     """
+
     if pre_cropped is not None:
         cropped = pre_cropped
         detected = face_detected if face_detected is not None else False
@@ -299,9 +310,14 @@ def preprocess_for_mesonet(
             padding=settings.FACE_CROP_PADDING
         )
 
-    resized = resize_with_padding(cropped, (settings.MESONET_INPUT_SIZE, settings.MESONET_INPUT_SIZE))
+    resized = resize_with_padding(
+        cropped,
+        (settings.MESONET_INPUT_SIZE, settings.MESONET_INPUT_SIZE)
+    )
+
     rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
     normalized = rgb.astype(np.float32) / 255.0
+
     tensor = np.transpose(normalized, (2, 0, 1))
     tensor = np.expand_dims(tensor, axis=0).astype(np.float32)
 
